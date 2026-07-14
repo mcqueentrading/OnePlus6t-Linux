@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log() {
+  printf 'oneplus6t-uim-select: %s\n' "$*" >&2
+}
+
+if command -v qmicli >/dev/null 2>&1; then
+  qmicli_cmd=(qmicli)
+elif command -v pmos-qmicli >/dev/null 2>&1; then
+  qmicli_cmd=(env LD_LIBRARY_PATH=/opt/pmos-compat/lib pmos-qmicli)
+elif [[ -x /opt/pmos-compat/bin/qmicli ]]; then
+  qmicli_cmd=(env LD_LIBRARY_PATH=/opt/pmos-compat/lib /opt/pmos-compat/bin/qmicli)
+else
+  log "qmicli is not installed"
+  exit 0
+fi
+
+target=""
+for _ in $(seq 1 45); do
+  if [[ -e /dev/modem ]]; then
+    target="-d /dev/modem"
+    break
+  elif [[ -e /dev/wwan0qmi0 ]]; then
+    target="-d /dev/wwan0qmi0 --device-open-qmi"
+    break
+  elif "${qmicli_cmd[@]}" --silent -pd qrtr://0 --uim-noop >/dev/null 2>&1; then
+    target="-pd qrtr://0"
+    break
+  fi
+  sleep 1
+done
+
+if [[ -z "$target" ]]; then
+  log "no QMI modem target found"
+  exit 0
+fi
+
+read -r -a target_args <<< "$target"
+cards="$("${qmicli_cmd[@]}" --silent "${target_args[@]}" --uim-get-card-status)"
+
+if printf '%s\n' "$cards" | grep -Fq "Primary GW:   slot"; then
+  log "Primary GW provisioning already selected"
+  exit 0
+fi
+
+if ! printf '%s\n' "$cards" | grep -Fq "Card state: 'present'"; then
+  log "no SIM card detected"
+  exit 0
+fi
+
+slot="$(printf '%s\n' "$cards" | awk '
+  /^Slot \[[0-9]+\]:/ {
+    slot=$2
+    gsub(/[][]/, "", slot)
+  }
+  /Card state: '\''present'\''/ {
+    print slot
+    exit
+  }
+')"
+
+aid="$(printf '%s\n' "$cards" | awk '
+  /Application type:  '\''usim \(2\)'\''/ {
+    in_usim=1
+  }
+  in_usim && /Application ID:/ {
+    getline
+    gsub(/[^A-Fa-f0-9]/, "", $0)
+    print $0
+    exit
+  }
+')"
+
+if [[ -z "$slot" || -z "$aid" ]]; then
+  log "could not derive SIM slot/AID"
+  exit 0
+fi
+
+log "activating Primary GW on slot ${slot} with AID ${aid}"
+"${qmicli_cmd[@]}" --silent "${target_args[@]}" \
+  --uim-change-provisioning-session="slot=${slot},activate=yes,session-type=primary-gw-provisioning,aid=${aid}"

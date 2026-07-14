@@ -1,0 +1,16 @@
+out/
+cache/
+work/
+workingdoc
+vendor/pmos-oneplus-fajita/boot/*
+vendor/pmos-oneplus-fajita/boot
+image-snapshots/*
+!image-snapshots/README.md
+*.img
+*.img.xz
+*.img.zst
+*.simg
+*.tar
+*.tar.gz
+*.tar.zst
+*.sha256

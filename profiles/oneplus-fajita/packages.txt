@@ -1,0 +1,45 @@
+# Runtime packages needed for the base phone boot path and PMOS hardware parity.
+#
+# The rootfs builder installs this manifest into the generated image when
+# INSTALL_PROFILE_PACKAGES=1.
+
+# Display and input base
+git
+wayland
+libinput
+evtest
+hyprland
+brightnessctl
+foot
+linux-firmware-qcom
+
+# Quiet boot splash
+plymouth
+
+# Audio and volume rocker support
+alsa-utils
+pipewire
+pipewire-pulse
+wireplumber
+rtkit
+
+# Wi-Fi and network UI base
+networkmanager
+wpa_supplicant
+
+# Bluetooth
+bluez
+bluez-utils
+
+# Battery and power reporting
+upower
+
+# Sensors
+iio-sensor-proxy
+
+# Mobile data/SMS validation path
+modemmanager
+libqmi
+libmbim
+mobile-broadband-provider-info
+usb_modeswitch
